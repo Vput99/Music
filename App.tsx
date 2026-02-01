@@ -18,7 +18,11 @@ import {
   MonitorPlay,
   Download,
   Clock,
-  Music2
+  Music2,
+  Settings,
+  X,
+  Key,
+  Save
 } from 'lucide-react';
 import { MOCK_SONGS, MOCK_PLAYLISTS, MOOD_FILTERS } from './constants';
 import { Song, ViewState, PlayerMode, PlayerTab, MediaMode } from './types';
@@ -79,6 +83,72 @@ const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boole
     </div>
 );
 
+// --- Settings Modal ---
+
+const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const [apiKey, setApiKey] = useState(localStorage.getItem('VICKY_USER_API_KEY') || '');
+    const [saved, setSaved] = useState(false);
+
+    const handleSave = () => {
+        if (apiKey.trim()) {
+            localStorage.setItem('VICKY_USER_API_KEY', apiKey.trim());
+        } else {
+            localStorage.removeItem('VICKY_USER_API_KEY');
+        }
+        setSaved(true);
+        setTimeout(() => {
+            setSaved(false);
+            onClose();
+            window.location.reload(); // Reload to apply new service instance
+        }, 1000);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-neutral-400 hover:text-white">
+                    <X size={20} />
+                </button>
+                
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <Settings size={20} className="text-purple-400" />
+                    </div>
+                    <h2 className="text-xl font-bold">Settings</h2>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Google AI API Key</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <Key size={16} className="text-neutral-500" />
+                            </div>
+                            <input 
+                                type="password" 
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder="Paste your Gemini API Key here"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all"
+                            />
+                        </div>
+                        <p className="text-[10px] text-neutral-500 mt-2 leading-relaxed">
+                            Jika Anda mengalami error "Quota", buat API Key gratis baru di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-purple-400 hover:underline">Google AI Studio</a> dan tempelkan di sini.
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={handleSave}
+                        className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${saved ? 'bg-green-500 text-black' : 'bg-white text-black hover:bg-neutral-200'}`}
+                    >
+                        {saved ? 'Saved!' : <><Save size={16} /> Save Changes</>}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Extracted Views to fix Focus Issues ---
 
 const formatTime = (seconds: number) => {
@@ -97,10 +167,11 @@ interface TopBarProps {
     isAiLoading: boolean;
     installPrompt: any;
     handleInstall: () => void;
+    onOpenSettings: () => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({ 
-    setCurrentView, searchQuery, setSearchQuery, handleAiSearch, isAiLoading, installPrompt, handleInstall 
+    setCurrentView, searchQuery, setSearchQuery, handleAiSearch, isAiLoading, installPrompt, handleInstall, onOpenSettings
 }) => (
     <div className="sticky top-0 z-30 bg-black/50 backdrop-blur-md flex items-center gap-4 px-4 py-3 pt-safe border-b border-white/5 transition-all">
        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('HOME')}>
@@ -132,6 +203,9 @@ const TopBar: React.FC<TopBarProps> = ({
                    <Download size={14} /> Install App
                </button>
            )}
+           <IconButton onClick={onOpenSettings} size={9} className="mr-1">
+               <Settings size={20} />
+           </IconButton>
            <div className="w-9 h-9 rounded-full bg-gradient-to-b from-neutral-700 to-neutral-800 border border-white/10 flex items-center justify-center text-sm font-bold cursor-pointer hover:scale-105 transition-transform">
                V
            </div>
@@ -553,6 +627,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('HOME');
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Player State
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -714,6 +789,7 @@ const App: React.FC = () => {
                 isAiLoading={isAiLoading}
                 installPrompt={installPrompt}
                 handleInstall={handleInstall}
+                onOpenSettings={() => setShowSettings(true)}
             />
             
             <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
@@ -773,6 +849,9 @@ const App: React.FC = () => {
                 duration={duration}
             />
         </div>
+
+        {/* Settings Modal */}
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
         {currentSong && (
             <ExpandedPlayer

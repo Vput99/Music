@@ -2,10 +2,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Song } from '../types';
 
 const getAiClient = () => {
-    if (!process.env.API_KEY) {
-        throw new Error("API Key is missing. Please configuration your environment variables.");
+    // PRIORITAS 1: Cek Key milik user yang disimpan di browser
+    const userKey = localStorage.getItem('VICKY_USER_API_KEY');
+    
+    // PRIORITAS 2: Cek Key bawaan sistem (environment variable)
+    const envKey = process.env.API_KEY;
+
+    const finalKey = userKey || envKey;
+
+    if (!finalKey) {
+        throw new Error("API Key belum diatur. Silakan buka Settings dan masukkan Google Gemini API Key Anda.");
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    return new GoogleGenAI({ apiKey: finalKey });
 };
 
 const playlistSchema = {
@@ -44,6 +53,22 @@ const cleanJson = (text: string) => {
     if (!text) return "{}";
     // Remove markdown code blocks if present (```json ... ```)
     return text.replace(/```json/g, '').replace(/```/g, '').trim();
+};
+
+const getFriendlyErrorMessage = (error: any): string => {
+    const msg = error.message || JSON.stringify(error);
+    
+    if (msg.includes("429") || msg.includes("quota")) {
+        return "Limit harian AI habis (Error 429). Silakan ganti API Key di menu Settings.";
+    }
+    if (msg.includes("API Key")) {
+        return "API Key hilang atau salah. Cek menu Settings.";
+    }
+    if (msg.includes("503") || msg.includes("overloaded")) {
+        return "Server AI sedang sibuk. Nikmati musik offline dulu ya.";
+    }
+    
+    return "Gagal terhubung ke AI. Menampilkan mode offline.";
 };
 
 export const generateLyrics = async (title: string, artist: string): Promise<string> => {
@@ -130,12 +155,13 @@ export const generateSmartPlaylist = async (
 
   } catch (error: any) {
     console.error("AI Playlist Error:", error);
-    // Fallback to a shuffled local list + alert
+    // Fallback to a shuffled local list
     const shuffled = [...availableSongs].sort(() => 0.5 - Math.random());
-    const errorMessage = error.message || "Unknown error";
+    const friendlyMessage = getFriendlyErrorMessage(error);
+    
     return {
       playlistName: `Offline Mix: ${mood}`,
-      description: `Cloud not connected: ${errorMessage}. Enjoy this local mix instead.`,
+      description: friendlyMessage,
       songs: shuffled.slice(0, 5)
     };
   }

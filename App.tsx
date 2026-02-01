@@ -115,22 +115,42 @@ const App: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<{name: string, desc: string} | null>(null);
 
-  const playerRef = useRef<ReactPlayer>(null);
+  const playerRef = useRef<any>(null);
 
   // Install PWA Logic
   useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
+      // Stash the event so it can be triggered later.
       setInstallPrompt(e);
-    });
+      console.log('Install prompt captured');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
 
   const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
+    if (!installPrompt) {
+        console.log('No install prompt available');
+        return;
+    }
+    
+    // Show the install prompt
+    try {
+        installPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        const { outcome } = await installPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        
+        // We've used the prompt, and can't use it again, discard it
+        setInstallPrompt(null);
+    } catch (err) {
+        console.error('Error during installation:', err);
     }
   };
 
@@ -207,7 +227,7 @@ const App: React.FC = () => {
          <div className="flex items-center gap-3">
              <IconButton className="sm:hidden" onClick={() => setCurrentView('SEARCH')}><Search size={22} /></IconButton>
              {installPrompt && (
-                 <button onClick={handleInstall} className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold transition-all">
+                 <button onClick={handleInstall} className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold transition-all animate-pulse">
                      <Download size={14} /> Install App
                  </button>
              )}
@@ -483,7 +503,7 @@ const App: React.FC = () => {
 
           {/* Install Banner (If available) */}
           {installPrompt && (
-              <div className="mb-8 p-4 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 rounded-2xl flex items-center justify-between">
+              <div className="mb-8 p-4 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 rounded-2xl flex items-center justify-between shadow-lg shadow-purple-900/10">
                   <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
                           <Download size={20} className="text-purple-300" />
@@ -493,7 +513,7 @@ const App: React.FC = () => {
                           <p className="text-xs text-neutral-400">Get the best experience</p>
                       </div>
                   </div>
-                  <button onClick={handleInstall} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:scale-105 transition">Install</button>
+                  <button onClick={handleInstall} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:scale-105 active:scale-95 transition-all">Install</button>
               </div>
           )}
 
@@ -603,10 +623,10 @@ const App: React.FC = () => {
                     width="100%"
                     height="100%"
                     controls={false}
-                    onProgress={(p) => setCurrentTime(p.playedSeconds)}
+                    onProgress={(p: any) => setCurrentTime(p.playedSeconds)}
                     onDuration={(d) => setDuration(d)}
                     onEnded={skipNext}
-                    config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1 } } }}
+                    config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1 } } } as any}
                 />
             </div>
         )}

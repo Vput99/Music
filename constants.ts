@@ -6,7 +6,16 @@ export const SAMPLE_AUDIO_1 = "https://www.soundhelix.com/examples/mp3/SoundHeli
 // YTM Style Mood Filters
 export const MOOD_FILTERS = ["Energize", "Relax", "Workout", "Commute", "Focus"];
 
-const DUMMY_LYRICS = `(Lyrics are loaded from AI...)`;
+export const GENRE_CATEGORIES = [
+  { id: 'pop-indo', name: 'Pop Indo', color: 'from-red-500 to-pink-600', emoji: '🇮🇩' },
+  { id: 'k-pop', name: 'K-Pop', color: 'from-pink-400 to-purple-500', emoji: '🫰' },
+  { id: 'western', name: 'Western Pop', color: 'from-blue-500 to-cyan-500', emoji: '🌎' },
+  { id: 'dangdut', name: 'Dangdut Koplo', color: 'from-yellow-500 to-orange-600', emoji: '💃' },
+  { id: 'rock', name: 'Rock Hits', color: 'from-slate-700 to-black', emoji: '🎸' },
+  { id: 'lofi', name: 'Lofi Study', color: 'from-indigo-400 to-blue-400', emoji: '☕' },
+  { id: 'nasheed', name: 'Religi', color: 'from-emerald-500 to-teal-600', emoji: '🕌' },
+  { id: '90s', name: '90s Nostalgia', color: 'from-orange-400 to-red-500', emoji: '📼' },
+];
 
 export const MOCK_SONGS: Song[] = [
   {

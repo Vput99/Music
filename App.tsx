@@ -28,7 +28,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon
 } from 'lucide-react';
-import { MOCK_SONGS, MOCK_PLAYLISTS, MOOD_FILTERS } from './constants';
+import { MOCK_SONGS, MOCK_PLAYLISTS, MOOD_FILTERS, GENRE_CATEGORIES } from './constants';
 import { Song, ViewState, PlayerMode, PlayerTab, MediaMode } from './types';
 import { generateSmartPlaylist, generateLyrics } from './services/geminiService';
 
@@ -59,7 +59,15 @@ const Chip: React.FC<{ label: string; onClick: () => void; isActive?: boolean }>
     </button>
 );
 
-const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boolean; index?: number; onDelete?: (id: string) => void }> = ({ song, onClick, isPlaying, index, onDelete }) => (
+const SongListItem: React.FC<{ 
+    song: Song; 
+    onClick: () => void; 
+    isPlaying: boolean; 
+    index?: number; 
+    onDelete?: (id: string) => void;
+    isLiked?: boolean;
+    onToggleLike?: (e: React.MouseEvent) => void;
+}> = ({ song, onClick, isPlaying, index, onDelete, isLiked, onToggleLike }) => (
     <div onClick={onClick} className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer group transition-all duration-200 active:scale-[0.98] ${isPlaying ? 'bg-white/10 border border-white/5' : 'hover:bg-white/5 border border-transparent'}`}>
         <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
             <img src={song.coverUrl} className={`w-full h-full object-cover transition-opacity duration-500 ${isPlaying ? 'opacity-40' : ''}`} alt="" onError={(e) => e.currentTarget.src = 'https://placehold.co/100x100?text=Music'} />
@@ -78,26 +86,36 @@ const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boole
                 <p className="text-sm text-neutral-400 truncate">{song.artist}</p>
             </div>
         </div>
-        <div className="text-neutral-500 text-xs font-medium hidden sm:block">
-            {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, '0')}
-        </div>
         
-        {onDelete ? (
-             <IconButton 
-                className="hover:bg-red-500/20 hover:text-red-500" 
-                size={8} 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(song.id);
-                }}
-             >
-                <Trash2 size={16} />
-             </IconButton>
-        ) : (
-            <IconButton className="opacity-0 group-hover:opacity-100 sm:opacity-0" size={8}>
-                <MoreVertical size={16} />
-            </IconButton>
-        )}
+        {/* Actions Section */}
+        <div className="flex items-center gap-2">
+            {/* Like Button (Always visible on mobile if liked, or group hover) */}
+            {onToggleLike && (
+                <button 
+                    onClick={onToggleLike}
+                    className={`transition-all ${isLiked ? 'text-green-500 scale-110' : 'text-neutral-600 opacity-0 group-hover:opacity-100'}`}
+                >
+                    <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+                </button>
+            )}
+
+            <div className="text-neutral-500 text-xs font-medium hidden sm:block w-10 text-right">
+                {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, '0')}
+            </div>
+            
+            {onDelete && (
+                <IconButton 
+                    className="hover:bg-red-500/20 hover:text-red-500" 
+                    size={8} 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(song.id);
+                    }}
+                >
+                    <Trash2 size={16} />
+                </IconButton>
+            )}
+        </div>
     </div>
 );
 
@@ -392,12 +410,14 @@ interface ExpandedPlayerProps {
     skipPrev: () => void;
     skipNext: () => void;
     aiResult: { name: string; desc: string } | null;
+    isLiked: boolean;
+    toggleLike: (song: Song) => void;
 }
 
 const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
     playerMode, setPlayerMode, currentSong, mediaMode, setMediaMode, activeTab, setActiveTab,
     queue, playSong, fetchedLyrics, currentTime, setCurrentTime, duration, playerRef,
-    isPlaying, setIsPlaying, skipPrev, skipNext, aiResult
+    isPlaying, setIsPlaying, skipPrev, skipNext, aiResult, isLiked, toggleLike
 }) => {
     if(playerMode === 'MINI' || !currentSong) return null;
 
@@ -460,7 +480,12 @@ const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
                     {!isVideoMode && (
                       <div className="mt-8 text-center md:hidden w-full px-8 animate-fade-in">
                           <h2 className="text-2xl font-bold truncate mb-1">{currentSong.title}</h2>
-                          <p className="text-lg text-neutral-400 truncate">{currentSong.artist}</p>
+                          <div className="flex items-center justify-center gap-2 mt-2">
+                             <p className="text-lg text-neutral-400 truncate">{currentSong.artist}</p>
+                             <button onClick={() => toggleLike(currentSong)} className={`ml-2 ${isLiked ? 'text-green-500' : 'text-neutral-500'}`}>
+                                 <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+                             </button>
+                          </div>
                       </div>
                     )}
                 </div>
@@ -575,10 +600,12 @@ interface MiniPlayerProps {
     skipNext: () => void;
     currentTime: number;
     duration: number;
+    isLiked: boolean;
+    toggleLike: (song: Song) => void;
 }
 
 const MiniPlayer: React.FC<MiniPlayerProps> = ({ 
-    currentSong, playerMode, setPlayerMode, isPlaying, setIsPlaying, skipNext, currentTime, duration 
+    currentSong, playerMode, setPlayerMode, isPlaying, setIsPlaying, skipNext, currentTime, duration, isLiked, toggleLike 
 }) => {
     if(!currentSong) return null;
     return (
@@ -605,7 +632,13 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 pr-1">
-                    <IconButton className="hidden sm:flex" size={10}><Heart size={18} /></IconButton>
+                    <IconButton 
+                        className="hidden sm:flex" 
+                        size={10} 
+                        onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
+                    >
+                        <Heart size={18} fill={isLiked ? "currentColor" : "none"} className={isLiked ? "text-green-500" : ""} />
+                    </IconButton>
                     <button 
                       onClick={(e) => {
                           e.stopPropagation();
@@ -633,10 +666,12 @@ interface HomeViewProps {
     currentSong: Song | null;
     playSong: (song: Song) => void;
     setQueue: (songs: Song[]) => void;
+    likedSongs: Song[];
+    toggleLike: (song: Song) => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ 
-    installPrompt, handleInstall, activeChip, setActiveChip, handleAiSearch, aiResult, queue, currentSong, playSong, setQueue 
+    installPrompt, handleInstall, activeChip, setActiveChip, handleAiSearch, aiResult, queue, currentSong, playSong, setQueue, likedSongs, toggleLike 
 }) => (
     <div className="pb-40 px-4 md:px-8 pt-4 animate-fade-in">
         <div className="mb-6 mt-2">
@@ -731,6 +766,8 @@ const HomeView: React.FC<HomeViewProps> = ({
                           song={s} 
                           isPlaying={currentSong?.id === s.id} 
                           onClick={() => playSong(s)}
+                          isLiked={likedSongs.some(ls => ls.id === s.id)}
+                          onToggleLike={(e) => { e.stopPropagation(); toggleLike(s); }}
                         />
                     ))}
                 </div>
@@ -759,6 +796,7 @@ const App: React.FC = () => {
   
   // Library State
   const [mySongs, setMySongs] = useState<Song[]>([]);
+  const [likedSongs, setLikedSongs] = useState<Song[]>([]);
 
   // Audio State
   const [currentTime, setCurrentTime] = useState(0);
@@ -776,7 +814,7 @@ const App: React.FC = () => {
   // Cast ReactPlayer to any to handle type inconsistencies with 'url' prop
   const Player = ReactPlayer as any;
 
-  // Load Custom Songs
+  // Load Custom Songs & Liked Songs
   useEffect(() => {
     const saved = localStorage.getItem('VICKY_MY_SONGS');
     if (saved) {
@@ -784,6 +822,15 @@ const App: React.FC = () => {
             setMySongs(JSON.parse(saved));
         } catch(e) {
             console.error("Failed to parse songs", e);
+        }
+    }
+
+    const savedLikes = localStorage.getItem('VICKY_LIKED_SONGS');
+    if (savedLikes) {
+        try {
+            setLikedSongs(JSON.parse(savedLikes));
+        } catch(e) {
+            console.error("Failed to parse likes", e);
         }
     }
   }, []);
@@ -893,6 +940,18 @@ const App: React.FC = () => {
           setMySongs(updated);
           localStorage.setItem('VICKY_MY_SONGS', JSON.stringify(updated));
       }
+  };
+
+  const toggleLike = (song: Song) => {
+      const isLiked = likedSongs.some(ls => ls.id === song.id);
+      let newLikes = [];
+      if (isLiked) {
+          newLikes = likedSongs.filter(ls => ls.id !== song.id);
+      } else {
+          newLikes = [song, ...likedSongs];
+      }
+      setLikedSongs(newLikes);
+      localStorage.setItem('VICKY_LIKED_SONGS', JSON.stringify(newLikes));
   };
 
   // --- Background Play & Media Session API ---
@@ -1026,6 +1085,8 @@ const App: React.FC = () => {
                         currentSong={currentSong}
                         playSong={playSong}
                         setQueue={setQueue}
+                        likedSongs={likedSongs}
+                        toggleLike={toggleLike}
                     />
                 )}
                 {currentView === 'SEARCH' && (
@@ -1067,39 +1128,79 @@ const App: React.FC = () => {
                                  <Plus size={18} /> Add Song
                              </button>
                         </div>
-                        
-                        {mySongs.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
-                                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                                    <ImageIcon size={32} />
+
+                        {/* Library Tabs (Liked vs Uploads) */}
+                        <div className="mb-8">
+                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <Heart size={20} className="text-green-500" fill="currentColor" /> Liked Songs
+                             </h2>
+                             {likedSongs.length === 0 ? (
+                                <p className="text-neutral-500 text-sm italic">No liked songs yet. Tap the heart icon to save songs here.</p>
+                             ) : (
+                                <div className="grid gap-2 mb-8">
+                                    {likedSongs.map((s, i) => (
+                                        <SongListItem 
+                                            key={s.id} 
+                                            song={s} 
+                                            isPlaying={currentSong?.id === s.id} 
+                                            onClick={() => {
+                                                setQueue(likedSongs);
+                                                playSong(s);
+                                            }}
+                                            isLiked={true}
+                                            onToggleLike={(e) => { e.stopPropagation(); toggleLike(s); }}
+                                        />
+                                    ))}
                                 </div>
-                                <h3 className="text-lg font-bold mb-1">It's empty here</h3>
-                                <p className="text-sm">Tap "Add Song" to build your collection.</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-2">
-                                {mySongs.map((s, i) => (
-                                    <SongListItem 
-                                        key={s.id} 
-                                        song={s} 
-                                        isPlaying={currentSong?.id === s.id} 
-                                        onClick={() => {
-                                            // Update queue context only if different
-                                            setQueue(mySongs);
-                                            playSong(s);
-                                        }}
-                                        onDelete={handleDeleteSong}
-                                    />
-                                ))}
-                            </div>
-                        )}
+                             )}
+                        </div>
+                        
+                        <div>
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <ImageIcon size={20} className="text-blue-400" /> My Uploads
+                            </h2>
+                            {mySongs.length === 0 ? (
+                                <div className="p-8 border border-dashed border-white/10 rounded-2xl text-center text-neutral-500">
+                                    <p className="text-sm">Paste YouTube links to add songs here.</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    {mySongs.map((s, i) => (
+                                        <SongListItem 
+                                            key={s.id} 
+                                            song={s} 
+                                            isPlaying={currentSong?.id === s.id} 
+                                            onClick={() => {
+                                                setQueue(mySongs);
+                                                playSong(s);
+                                            }}
+                                            onDelete={handleDeleteSong}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
                 {currentView === 'EXPLORE' && (
-                    <div className="flex flex-col items-center justify-center h-full text-neutral-500 animate-fade-in">
-                        <Compass size={64} className="mb-4 text-purple-500/50" />
-                        <h2 className="text-xl font-bold text-white">Explore</h2>
-                        <p>Coming Soon</p>
+                    <div className="p-6 pt-safe pb-40 animate-fade-in">
+                        <div className="mb-8">
+                            <h1 className="text-3xl font-bold">Explore Genres</h1>
+                            <p className="text-neutral-400 text-sm mt-1">Discover new music based on your mood</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                            {GENRE_CATEGORIES.map(genre => (
+                                <div 
+                                    key={genre.id}
+                                    onClick={() => handleAiSearch(`Play some popular ${genre.name} music`)}
+                                    className={`relative h-28 rounded-2xl p-4 overflow-hidden cursor-pointer group bg-gradient-to-br ${genre.color} transition-all hover:scale-[1.02] active:scale-95 shadow-xl`}
+                                >
+                                    <span className="font-bold text-lg text-white relative z-10">{genre.name}</span>
+                                    <div className="absolute -bottom-2 -right-2 text-6xl opacity-30 group-hover:opacity-50 transition-opacity rotate-12">{genre.emoji}</div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
             </main>
@@ -1113,6 +1214,8 @@ const App: React.FC = () => {
                 skipNext={skipNext}
                 currentTime={currentTime}
                 duration={duration}
+                isLiked={currentSong ? likedSongs.some(ls => ls.id === currentSong.id) : false}
+                toggleLike={toggleLike}
             />
         </div>
 
@@ -1141,6 +1244,8 @@ const App: React.FC = () => {
                 skipPrev={skipPrev}
                 skipNext={skipNext}
                 aiResult={aiResult}
+                isLiked={likedSongs.some(ls => ls.id === currentSong.id)}
+                toggleLike={toggleLike}
             />
         )}
     </div>

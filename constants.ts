@@ -85,6 +85,17 @@ export const MOCK_SONGS: Song[] = [
     duration: 251,
     color: '#dc2626',
     genre: 'Pop'
+  },
+  {
+    id: '23',
+    title: 'Sumpah Mati Padamu',
+    artist: 'Rusdi',
+    album: 'Single',
+    coverUrl: 'https://i.ytimg.com/vi/XXmKK_5rAQU/maxresdefault.jpg',
+    youtubeId: 'XXmKK_5rAQU',
+    duration: 205,
+    color: '#4b5563',
+    genre: 'Pop Indo'
   }
 ];
 
@@ -94,13 +105,13 @@ export const MOCK_PLAYLISTS: Playlist[] = [
     name: 'TikTok FYP Viral',
     description: 'Hits paling rame yang sering lewat di scroll kamu.',
     coverUrl: 'https://i.ytimg.com/vi/Qc7_zRjH808/maxresdefault.jpg',
-    songs: ['13', '14', '15', '17', '20']
+    songs: ['13', '14', '15', '17', '20', '23']
   },
   {
     id: 'p1',
     name: 'Top Hits',
     description: 'Lagu terpopuler minggu ini.',
     coverUrl: 'https://i.ytimg.com/vi/kPa7bsKwL-c/maxresdefault.jpg',
-    songs: ['22', '21', '17', '13']
+    songs: ['22', '21', '17', '13', '23']
   }
 ];

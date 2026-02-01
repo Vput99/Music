@@ -123,15 +123,11 @@ const App: React.FC = () => {
   // Install PWA Logic
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setInstallPrompt(e);
       console.log('Install prompt captured');
     };
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
@@ -142,15 +138,10 @@ const App: React.FC = () => {
         console.log('No install prompt available');
         return;
     }
-    
-    // Show the install prompt
     try {
         installPrompt.prompt();
-        // Wait for the user to respond to the prompt
         const { outcome } = await installPrompt.userChoice;
         console.log(`User response to the install prompt: ${outcome}`);
-        
-        // We've used the prompt, and can't use it again, discard it
         setInstallPrompt(null);
     } catch (err) {
         console.error('Error during installation:', err);
@@ -167,17 +158,45 @@ const App: React.FC = () => {
       }
   };
 
-  const skipNext = () => {
+  const skipNext = useCallback(() => {
       if(!currentSong) return;
       const idx = queue.findIndex(s => s.id === currentSong.id);
       playSong(queue[(idx + 1) % queue.length]);
-  };
+  }, [currentSong, queue]);
 
-  const skipPrev = () => {
+  const skipPrev = useCallback(() => {
       if(!currentSong) return;
       const idx = queue.findIndex(s => s.id === currentSong.id);
       playSong(queue[(idx - 1 + queue.length) % queue.length]);
-  };
+  }, [currentSong, queue]);
+
+  // --- Background Play & Media Session API ---
+  useEffect(() => {
+    if (!currentSong) return;
+
+    if ('mediaSession' in navigator) {
+      // Set metadata for Lock Screen / Notification Center
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        album: currentSong.album || 'Vicky Music',
+        artwork: [
+          { src: currentSong.coverUrl, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '128x128', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '192x192', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '384x384', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
+        ]
+      });
+
+      // Bind Lock Screen Actions
+      navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+      navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+      navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
+      navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+    }
+  }, [currentSong, skipNext, skipPrev]);
 
   const handleAiSearch = async (query: string) => {
       setIsAiLoading(true);
@@ -629,7 +648,8 @@ const App: React.FC = () => {
                     onProgress={(p: any) => setCurrentTime(p.playedSeconds)}
                     onDuration={(d: any) => setDuration(d)}
                     onEnded={skipNext}
-                    config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1 } } } as any}
+                    // playsinline: 1 is crucial for background playback potential on iOS
+                    config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1, origin: window.location.origin } } } as any}
                 />
             </div>
         )}

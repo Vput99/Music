@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vicky-music-v2';
+const CACHE_NAME = 'vicky-music-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

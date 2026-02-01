@@ -14,7 +14,7 @@ import {
   ListMusic, 
   Heart,
   Menu,
-  ChevronDown,
+  ChevronDown, 
   MoreVertical,
   Cast,
   Repeat,
@@ -116,6 +116,9 @@ const App: React.FC = () => {
   const [aiResult, setAiResult] = useState<{name: string, desc: string} | null>(null);
 
   const playerRef = useRef<any>(null);
+
+  // Cast ReactPlayer to any to handle type inconsistencies with 'url' prop
+  const Player = ReactPlayer as any;
 
   // Install PWA Logic
   useEffect(() => {
@@ -615,7 +618,7 @@ const App: React.FC = () => {
         {/* Hidden YouTube Player */}
         {playerUrl && (
             <div className={`fixed z-[60] transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden border border-white/10 ${playerMode === 'FULL' && mediaMode === 'VIDEO' ? 'inset-x-0 top-24 md:top-32 mx-auto w-full max-w-2xl aspect-video' : 'w-px h-px opacity-0 pointer-events-none -bottom-10'}`}>
-                <ReactPlayer
+                <Player
                     ref={playerRef}
                     url={playerUrl}
                     playing={isPlaying}
@@ -624,7 +627,7 @@ const App: React.FC = () => {
                     height="100%"
                     controls={false}
                     onProgress={(p: any) => setCurrentTime(p.playedSeconds)}
-                    onDuration={(d) => setDuration(d)}
+                    onDuration={(d: any) => setDuration(d)}
                     onEnded={skipNext}
                     config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1 } } } as any}
                 />

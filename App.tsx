@@ -724,8 +724,12 @@ const App: React.FC = () => {
       });
 
       // Bind Lock Screen Actions
-      navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
-      navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+      navigator.mediaSession.setActionHandler('play', () => {
+          setIsPlaying(true);
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+          setIsPlaying(false);
+      });
       navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
       navigator.mediaSession.setActionHandler('nexttrack', skipNext);
     }
@@ -754,12 +758,21 @@ const App: React.FC = () => {
           : currentSong.audioUrl)
       : null;
 
+  // Determine Player Styles for Visibility
+  // If playerMode is FULL and mediaMode is VIDEO, it's a normal visible video.
+  // Otherwise (Audio mode OR Mini player), we keep it technically visible (1x1px) but hidden from view
+  // to prevent browsers from sleeping the iframe.
+  const isVideoVisible = playerMode === 'FULL' && mediaMode === 'VIDEO';
+  const playerContainerClass = isVideoVisible
+      ? "fixed z-[60] inset-x-0 top-24 md:top-32 mx-auto w-full max-w-2xl aspect-video transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden border border-white/10"
+      : "fixed top-0 left-0 w-1 h-1 -z-50 opacity-0 pointer-events-none"; // CRITICAL: Do not use display:none or -bottom-1000
+
   return (
     <div className="flex h-screen bg-black text-white font-sans overflow-hidden selection:bg-purple-500 selection:text-white">
         
-        {/* Hidden YouTube Player */}
+        {/* React Player Instance */}
         {playerUrl && (
-            <div className={`fixed z-[60] transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden border border-white/10 ${playerMode === 'FULL' && mediaMode === 'VIDEO' ? 'inset-x-0 top-24 md:top-32 mx-auto w-full max-w-2xl aspect-video' : 'w-px h-px opacity-0 pointer-events-none -bottom-10'}`}>
+            <div className={playerContainerClass}>
                 <Player
                     ref={playerRef}
                     url={playerUrl}
@@ -768,11 +781,30 @@ const App: React.FC = () => {
                     width="100%"
                     height="100%"
                     controls={false}
+                    playsinline={true} // IMPORTANT for mobile
                     onProgress={(p: any) => setCurrentTime(p.playedSeconds)}
                     onDuration={(d: any) => setDuration(d)}
                     onEnded={skipNext}
+                    onPause={() => {
+                        // Only sync pause state if user is actually looking at the page.
+                        // If page is hidden (background), we keep 'isPlaying' true so MediaSession 'Play' can resume it.
+                        if (!document.hidden) {
+                            setIsPlaying(false);
+                        }
+                    }}
+                    onPlay={() => setIsPlaying(true)}
                     // playsinline: 1 is crucial for background playback potential on iOS
-                    config={{ youtube: { playerVars: { showinfo: 0, controls: 0, playsinline: 1, origin: window.location.origin } } } as any}
+                    config={{ 
+                        youtube: { 
+                            playerVars: { 
+                                showinfo: 0, 
+                                controls: 0, 
+                                playsinline: 1, 
+                                autoplay: 1,
+                                origin: window.location.origin 
+                            } 
+                        } 
+                    } as any}
                 />
             </div>
         )}

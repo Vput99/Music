@@ -16,7 +16,7 @@ const playlistSchema = {
             title: { type: Type.STRING },
             artist: { type: Type.STRING },
             genre: { type: Type.STRING },
-            youtubeId: { type: Type.STRING, description: "The 11-character YouTube Video ID for this song (e.g., 'dQw4w9WgXcQ'). Look for official audio or music video." },
+            youtubeId: { type: Type.STRING, description: "The 11-character YouTube Video ID (e.g., 'dQw4w9WgXcQ')." },
             existingId: { type: Type.STRING },
             isNewDiscovery: { type: Type.BOOLEAN }
         },
@@ -35,6 +35,12 @@ const lyricsSchema = {
     required: ["lyrics"]
 };
 
+const cleanJson = (text: string) => {
+    if (!text) return "{}";
+    // Remove markdown code blocks if present (```json ... ```)
+    return text.replace(/```json/g, '').replace(/```/g, '').trim();
+};
+
 export const generateLyrics = async (title: string, artist: string): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
@@ -45,9 +51,10 @@ export const generateLyrics = async (title: string, artist: string): Promise<str
                 responseSchema: lyricsSchema
             }
         });
-        const json = JSON.parse(response.text || "{}");
+        const json = JSON.parse(cleanJson(response.text || "{}"));
         return json.lyrics || "Lyrics not available.";
     } catch (e) {
+        console.error("Lyrics generation error:", e);
         return "Could not load lyrics at this time.";
     }
 }
@@ -57,18 +64,17 @@ export const generateSmartPlaylist = async (
   availableSongs: Song[]
 ): Promise<{ playlistName: string; description: string; songs: Song[] }> => {
   
-  const songDbString = availableSongs.map(s => `ID: ${s.id}, Title: "${s.title}", Artist: "${s.artist}"`).join('\n');
+  // Simplify context to reduce token usage and confusion
+  const songDbString = availableSongs.map(s => `${s.id}:${s.title}-${s.artist}`).join(', ');
 
   const prompt = `
-    I have a local music database:
-    ${songDbString}
-
     User Request: "${mood}".
+    Local DB: [${songDbString}]
     
-    1. Search via Google to find relevant songs. 
-    2. IMPORTANT: For each song, find the specific **YouTube Video ID** (11 characters) for the official audio or music video.
-    3. Construct a playlist of 3-8 songs.
-    4. Check existing database match.
+    1. Search via Google to find relevant songs for the mood/request.
+    2. IMPORTANT: For each song, identify the 11-character YouTube Video ID for the official audio/video.
+    3. Construct a playlist of 5-10 songs.
+    4. If a song matches the Local DB, use its 'existingId'.
     
     Return JSON.
   `;
@@ -84,43 +90,45 @@ export const generateSmartPlaylist = async (
       },
     });
 
-    const result = JSON.parse(response.text || "{}");
+    const text = cleanJson(response.text || "{}");
+    const result = JSON.parse(text);
     
     // Process songs
-    const processedSongs = result.songs.map((item: any, index: number) => {
-        if (item.existingId) {
+    const processedSongs = (result.songs || []).map((item: any, index: number) => {
+        if (item.existingId && availableSongs.find(s => s.id === item.existingId)) {
             return availableSongs.find(s => s.id === item.existingId);
         } else {
             // New song found on YouTube
-            const yId = item.youtubeId || "dQw4w9WgXcQ"; // Fallback to safe ID if missing
+            const yId = item.youtubeId || "dQw4w9WgXcQ"; // Fallback ID
             return {
-                id: `ai_yt_${yId}_${index}`,
+                id: `ai_yt_${yId}_${Date.now()}_${index}`,
                 title: item.title,
                 artist: item.artist,
                 album: "YouTube Music",
                 // Use YouTube Thumbnail as cover
                 coverUrl: `https://i.ytimg.com/vi/${yId}/maxresdefault.jpg`,
                 youtubeId: yId,
-                duration: 200, // Default approximate, player will update this
-                color: '#ff0000',
+                duration: 180, // Estimate
+                color: '#8b5cf6', // Violet default
                 genre: item.genre || 'Pop',
-                lyrics: undefined
             } as Song;
         }
     }).filter((s: Song | undefined) => s !== undefined);
 
     return {
-        playlistName: result.playlistName,
-        description: result.description,
+        playlistName: result.playlistName || `Mix: ${mood}`,
+        description: result.description || "AI Curated Playlist",
         songs: processedSongs
     };
 
   } catch (error) {
-    console.error("AI Error:", error);
+    console.error("AI Playlist Error:", error);
+    // Fallback to a shuffled local list + alert
+    const shuffled = [...availableSongs].sort(() => 0.5 - Math.random());
     return {
-      playlistName: `Mix: ${mood}`,
-      description: "Offline fallback mix.",
-      songs: availableSongs.slice(0, 5)
+      playlistName: `Offline Mix: ${mood}`,
+      description: "Could not connect to AI. Enjoy this local mix instead.",
+      songs: shuffled.slice(0, 5)
     };
   }
 };

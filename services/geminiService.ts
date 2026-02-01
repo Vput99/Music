@@ -1,7 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Song } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = () => {
+    if (!process.env.API_KEY) {
+        throw new Error("API Key is missing. Please configuration your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 const playlistSchema = {
   type: Type.OBJECT,
@@ -43,6 +48,7 @@ const cleanJson = (text: string) => {
 
 export const generateLyrics = async (title: string, artist: string): Promise<string> => {
     try {
+        const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: `Generate the lyrics for the song "${title}" by "${artist}". Return plain text with line breaks.`,
@@ -80,6 +86,7 @@ export const generateSmartPlaylist = async (
   `;
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -121,13 +128,14 @@ export const generateSmartPlaylist = async (
         songs: processedSongs
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Playlist Error:", error);
     // Fallback to a shuffled local list + alert
     const shuffled = [...availableSongs].sort(() => 0.5 - Math.random());
+    const errorMessage = error.message || "Unknown error";
     return {
       playlistName: `Offline Mix: ${mood}`,
-      description: "Could not connect to AI. Enjoy this local mix instead.",
+      description: `Cloud not connected: ${errorMessage}. Enjoy this local mix instead.`,
       songs: shuffled.slice(0, 5)
     };
   }

@@ -22,7 +22,11 @@ import {
   Settings,
   X,
   Key,
-  Save
+  Save,
+  Plus,
+  Trash2,
+  Link as LinkIcon,
+  Image as ImageIcon
 } from 'lucide-react';
 import { MOCK_SONGS, MOCK_PLAYLISTS, MOOD_FILTERS } from './constants';
 import { Song, ViewState, PlayerMode, PlayerTab, MediaMode } from './types';
@@ -55,7 +59,7 @@ const Chip: React.FC<{ label: string; onClick: () => void; isActive?: boolean }>
     </button>
 );
 
-const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boolean; index?: number }> = ({ song, onClick, isPlaying, index }) => (
+const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boolean; index?: number; onDelete?: (id: string) => void }> = ({ song, onClick, isPlaying, index, onDelete }) => (
     <div onClick={onClick} className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer group transition-all duration-200 active:scale-[0.98] ${isPlaying ? 'bg-white/10 border border-white/5' : 'hover:bg-white/5 border border-transparent'}`}>
         <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
             <img src={song.coverUrl} className={`w-full h-full object-cover transition-opacity duration-500 ${isPlaying ? 'opacity-40' : ''}`} alt="" onError={(e) => e.currentTarget.src = 'https://placehold.co/100x100?text=Music'} />
@@ -77,13 +81,27 @@ const SongListItem: React.FC<{ song: Song; onClick: () => void; isPlaying: boole
         <div className="text-neutral-500 text-xs font-medium hidden sm:block">
             {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, '0')}
         </div>
-        <IconButton className="opacity-0 group-hover:opacity-100 sm:opacity-0" size={8}>
-            <MoreVertical size={16} />
-        </IconButton>
+        
+        {onDelete ? (
+             <IconButton 
+                className="hover:bg-red-500/20 hover:text-red-500" 
+                size={8} 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(song.id);
+                }}
+             >
+                <Trash2 size={16} />
+             </IconButton>
+        ) : (
+            <IconButton className="opacity-0 group-hover:opacity-100 sm:opacity-0" size={8}>
+                <MoreVertical size={16} />
+            </IconButton>
+        )}
     </div>
 );
 
-// --- Settings Modal ---
+// --- Modals ---
 
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [apiKey, setApiKey] = useState(localStorage.getItem('VICKY_USER_API_KEY') || '');
@@ -149,7 +167,108 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     );
 };
 
-// --- Extracted Views to fix Focus Issues ---
+const AddSongModal: React.FC<{ onClose: () => void; onAdd: (url: string, title: string, artist: string) => void }> = ({ onClose, onAdd }) => {
+    const [url, setUrl] = useState('');
+    const [title, setTitle] = useState('');
+    const [artist, setArtist] = useState('');
+    
+    // Helper to extract ID to show preview thumbnail
+    const getYouTubeId = (url: string) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+    
+    const videoId = getYouTubeId(url);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-neutral-400 hover:text-white">
+                    <X size={20} />
+                </button>
+                
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <Plus size={20} className="text-blue-400" />
+                    </div>
+                    <h2 className="text-xl font-bold">Add Song</h2>
+                </div>
+
+                <div className="space-y-4">
+                    {/* YouTube Link Input */}
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">YouTube Link</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <LinkIcon size={16} className="text-neutral-500" />
+                            </div>
+                            <input 
+                                type="text" 
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                placeholder="Paste YouTube URL here..."
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+
+                    {/* Preview Thumbnail */}
+                    {videoId && (
+                        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10">
+                            <img 
+                                src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`} 
+                                className="w-full h-full object-cover"
+                                alt="Preview"
+                                onError={(e) => e.currentTarget.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Play size={24} className="text-white drop-shadow-md" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Title</label>
+                            <input 
+                                type="text" 
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="Song Title"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:border-blue-500 focus:outline-none transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Artist</label>
+                            <input 
+                                type="text" 
+                                value={artist}
+                                onChange={(e) => setArtist(e.target.value)}
+                                placeholder="Artist Name"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:border-blue-500 focus:outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={() => {
+                            if(url && title && artist) onAdd(url, title, artist);
+                        }}
+                        disabled={!videoId || !title || !artist}
+                        className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${videoId && title && artist ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-white/10 text-neutral-500 cursor-not-allowed'}`}
+                    >
+                        <Plus size={16} /> Add to Library
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Views ---
 
 const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return "0:00";
@@ -628,6 +747,7 @@ const App: React.FC = () => {
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddSong, setShowAddSong] = useState(false);
   
   // Player State
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -637,6 +757,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<PlayerTab>('UP_NEXT');
   const [mediaMode, setMediaMode] = useState<MediaMode>('SONG');
   
+  // Library State
+  const [mySongs, setMySongs] = useState<Song[]>([]);
+
   // Audio State
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -652,6 +775,18 @@ const App: React.FC = () => {
 
   // Cast ReactPlayer to any to handle type inconsistencies with 'url' prop
   const Player = ReactPlayer as any;
+
+  // Load Custom Songs
+  useEffect(() => {
+    const saved = localStorage.getItem('VICKY_MY_SONGS');
+    if (saved) {
+        try {
+            setMySongs(JSON.parse(saved));
+        } catch(e) {
+            console.error("Failed to parse songs", e);
+        }
+    }
+  }, []);
 
   // Install PWA Logic
   useEffect(() => {
@@ -693,15 +828,72 @@ const App: React.FC = () => {
 
   const skipNext = useCallback(() => {
       if(!currentSong) return;
-      const idx = queue.findIndex(s => s.id === currentSong.id);
-      playSong(queue[(idx + 1) % queue.length]);
-  }, [currentSong, queue]);
+      // Combine queue for lookup
+      const currentQueue = currentView === 'LIBRARY' ? mySongs : queue;
+      const idx = currentQueue.findIndex(s => s.id === currentSong.id);
+      
+      // If found in current queue, play next
+      if (idx !== -1) {
+          playSong(currentQueue[(idx + 1) % currentQueue.length]);
+      } else {
+          // Fallback to main queue
+          const qIdx = queue.findIndex(s => s.id === currentSong.id);
+          playSong(queue[(qIdx + 1) % queue.length]);
+      }
+  }, [currentSong, queue, mySongs, currentView]);
 
   const skipPrev = useCallback(() => {
       if(!currentSong) return;
-      const idx = queue.findIndex(s => s.id === currentSong.id);
-      playSong(queue[(idx - 1 + queue.length) % queue.length]);
-  }, [currentSong, queue]);
+      const currentQueue = currentView === 'LIBRARY' ? mySongs : queue;
+      const idx = currentQueue.findIndex(s => s.id === currentSong.id);
+      
+      if (idx !== -1) {
+          playSong(currentQueue[(idx - 1 + currentQueue.length) % currentQueue.length]);
+      } else {
+          const qIdx = queue.findIndex(s => s.id === currentSong.id);
+          playSong(queue[(qIdx - 1 + queue.length) % queue.length]);
+      }
+  }, [currentSong, queue, mySongs, currentView]);
+
+  const handleAddSong = (url: string, title: string, artist: string) => {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const match = url.match(regExp);
+      const yId = (match && match[2].length === 11) ? match[2] : null;
+      
+      if (!yId) {
+          alert("Invalid YouTube URL");
+          return;
+      }
+
+      const newSong: Song = {
+          id: `custom_${Date.now()}`,
+          title: title || 'Unknown',
+          artist: artist || 'Unknown',
+          album: 'My Uploads',
+          coverUrl: `https://i.ytimg.com/vi/${yId}/maxresdefault.jpg`,
+          youtubeId: yId,
+          duration: 0, // Duration will be picked up by player
+          genre: 'Custom',
+      };
+
+      const updatedSongs = [newSong, ...mySongs];
+      setMySongs(updatedSongs);
+      localStorage.setItem('VICKY_MY_SONGS', JSON.stringify(updatedSongs));
+      setShowAddSong(false);
+      
+      // Auto play the new song
+      setQueue(updatedSongs); // Update queue context to library
+      setCurrentView('LIBRARY');
+      playSong(newSong);
+  };
+
+  const handleDeleteSong = (id: string) => {
+      if(confirm("Delete this song from library?")) {
+          const updated = mySongs.filter(s => s.id !== id);
+          setMySongs(updated);
+          localStorage.setItem('VICKY_MY_SONGS', JSON.stringify(updated));
+      }
+  };
 
   // --- Background Play & Media Session API ---
   useEffect(() => {
@@ -759,9 +951,6 @@ const App: React.FC = () => {
       : null;
 
   // Determine Player Styles for Visibility
-  // If playerMode is FULL and mediaMode is VIDEO, it's a normal visible video.
-  // Otherwise (Audio mode OR Mini player), we keep it technically visible (1x1px) but hidden from view
-  // to prevent browsers from sleeping the iframe.
   const isVideoVisible = playerMode === 'FULL' && mediaMode === 'VIDEO';
   const playerContainerClass = isVideoVisible
       ? "fixed z-[60] inset-x-0 top-24 md:top-32 mx-auto w-full max-w-2xl aspect-video transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden border border-white/10"
@@ -861,11 +1050,56 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 )}
-                {(currentView === 'LIBRARY' || currentView === 'EXPLORE') && (
+                {currentView === 'LIBRARY' && (
+                    <div className="p-6 pt-safe pb-40 animate-fade-in">
+                        <div className="flex items-center justify-between mb-8">
+                             <div>
+                                 <h1 className="text-3xl font-bold flex items-center gap-3">
+                                     <Library size={32} className="text-purple-400" />
+                                     My Library
+                                 </h1>
+                                 <p className="text-neutral-400 text-sm mt-1">Your personal collection</p>
+                             </div>
+                             <button 
+                                onClick={() => setShowAddSong(true)}
+                                className="bg-white text-black px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-lg"
+                             >
+                                 <Plus size={18} /> Add Song
+                             </button>
+                        </div>
+                        
+                        {mySongs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
+                                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                    <ImageIcon size={32} />
+                                </div>
+                                <h3 className="text-lg font-bold mb-1">It's empty here</h3>
+                                <p className="text-sm">Tap "Add Song" to build your collection.</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-2">
+                                {mySongs.map((s, i) => (
+                                    <SongListItem 
+                                        key={s.id} 
+                                        song={s} 
+                                        isPlaying={currentSong?.id === s.id} 
+                                        onClick={() => {
+                                            // Update queue context only if different
+                                            setQueue(mySongs);
+                                            playSong(s);
+                                        }}
+                                        onDelete={handleDeleteSong}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {currentView === 'EXPLORE' && (
                     <div className="flex flex-col items-center justify-center h-full text-neutral-500 animate-fade-in">
                         <Compass size={64} className="mb-4 text-purple-500/50" />
-                        <h2 className="text-xl font-bold text-white">Coming Soon</h2>
-                        <p>This section is under construction.</p>
+                        <h2 className="text-xl font-bold text-white">Explore</h2>
+                        <p>Coming Soon</p>
                     </div>
                 )}
             </main>
@@ -882,8 +1116,9 @@ const App: React.FC = () => {
             />
         </div>
 
-        {/* Settings Modal */}
+        {/* Modals */}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+        {showAddSong && <AddSongModal onClose={() => setShowAddSong(false)} onAdd={handleAddSong} />}
 
         {currentSong && (
             <ExpandedPlayer
